@@ -31,7 +31,7 @@ Install virtualenv:
 > virtualenv env # create virtual enviroment
 > env\Scripts\activate # activate virtual env
 > git clone https://github.com/KMGEsim/KMGEsim_VS.git # clone repository
-> cd KMGEsim_TP # got to folder KMGEsim_TP
+> cd KMGEsim_VS # got to folder KMGEsim_VS
 > pip install -r requirements.txt # install requirements packages
 > ..\env\Scripts\deactivate # deactivate enviroment
 ```
