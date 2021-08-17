@@ -473,7 +473,7 @@ class Example(Frame):
                     canvas.draw()
                     canvas.get_tk_widget().pack(side=tkinter.TOP,
                                                 fill=tkinter.BOTH, expand=1)
-                    matplotlib.use('TkAgg')
+                    # matplotlib.use('TkAgg')
                     ax = fig.add_subplot(111, projection='3d')
                     draw_cubes(datas, 0, row_name, ax)
                     self.m = 1
