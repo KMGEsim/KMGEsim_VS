@@ -40,6 +40,8 @@ Renew and push repository:
 
 ```sh
 > git pull # pulling repo
+> ..\env\Scripts\activate # activate virtual env
+> pip install -r requirements.txt # install requirements packages
 ```
 
 ```sh
