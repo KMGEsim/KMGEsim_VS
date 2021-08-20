@@ -36,14 +36,14 @@ Install virtualenv:
 > ..\env\Scripts\deactivate # deactivate enviroment
 ```
 
-Renew and push repository:
+Renew repository:
 
 ```sh
 > git pull # pulling repo
 > ..\env\Scripts\activate # activate virtual env
 > pip install -r requirements.txt # install requirements packages
 ```
-
+Push repository:
 ```sh
 > git status # check the status of the file
 > git add . # adding new changes
