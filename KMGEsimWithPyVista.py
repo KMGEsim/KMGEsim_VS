@@ -5,41 +5,42 @@ import csv
 import time
 import pandas as pd
 from matplotlib.figure import Figure
-
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 from mpl_toolkits.mplot3d import Axes3D
-
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 import matplotlib.pyplot as plt
 import numpy as np
-
+import pyvista as pv
+import multiprocessing
 import os
 import re
 from tkinter import ttk
+
 from colour import Color
+import asyncio
 
 import matplotlib
 from matplotlib import cm
 
 class Example(Frame):
-    
-    
+
     def __init__(self, parent):
-        Frame.__init__(self, parent)# Initialization 
-        self.parent = parent # Parent class
-        self.__Unit__() # contructor
-    
-    
+
+        Frame.__init__(self, parent)   
+        self.parent = parent 
+        self.__Unit__()
+
     def __Unit__(self):
         
-        self.OveralDf = pd.DataFrame()# Overall datas
-        self.InjectorDf = {}# Injector and Producer datas
-        self.D3MeshDf = {} # 3d mesh file datas
-        self.three_d_names = [] # 3d object names
-
-        # create menu
+        self.OveralDf = pd.DataFrame()
+        self.InjectorDf = {}
+        self.D3MeshDf = {}
+        self.three_d_names = []
+        self.ProducerDf = pd.DataFrame()
         self.pack(fill=BOTH, expand=1)
+        
         self.menubar = Menu(self.parent)
         self.parent.config(menu=self.menubar)
 
@@ -59,11 +60,11 @@ class Example(Frame):
         self.solutionMenu=Menu(self.menubar, tearoff=0) 
         self.menubar.add_cascade(label='Solution', menu=self.solutionMenu)
         self.m = 1
-        
+
     def onOpen(self):
-        # funcrion open overal file
-        list = self.grid_slaves()
-        for l in list:
+
+        list_ = self.grid_slaves()
+        for l in list_:
             l.destroy()
         self.__Unit__()
         
@@ -74,19 +75,23 @@ class Example(Frame):
             print('----------------------Start reading!')
             self.readFile(fl, os.path.dirname(fl))
 
+    def solutionOpen(self, item):
+
+        self.summary(f'{item}')
+
     def clear(self):
-        # clear al datas and frames
+
         lists = self.grid_slaves()
         for lis in lists:
             lis.destroy()
         self.__Unit__()
 
     def overalOpen(self):
-        # open overal menu
+
         self.drawGrap(self.OveralDf)
 
     def injectorOpen(self, item):
-        # open well menu
+
         lists = self.grid_slaves()
         for lis in lists:
             lis.destroy()
@@ -139,9 +144,9 @@ class Example(Frame):
                     writer.writerow(my_dt)
         except Exception as ex:
             print(ex)
-    
-    
+
     def injector_read(self, path):
+
         try:
             # read well block inector and producer
             file = open(path, "r")
@@ -186,6 +191,7 @@ class Example(Frame):
                 hedcount += len(row)
                 if hedcount==len(headers):
                     break
+
             print(f'----------------------Well block reading is {name} done!')
             with open(f'{name}.csv', 'w', encoding='UTF8') as f:
                 writer = csv.writer(f)
@@ -202,7 +208,7 @@ class Example(Frame):
         except Exception as ex:
             print(ex)
             return []
-    
+
     def read_mesh_concp(self, fname, dirname):
         try:
             # read MESH file
@@ -243,8 +249,10 @@ class Example(Frame):
             headers += [re.findall(r'(.+)IN LAYER', data[i].strip())[0].strip().replace(' ', '_') for i in range(times[0],times[1]) if re.findall(r'.+IN LAYER[ ]+[1]$', data[i])]
 
             comp_aq = pd.DataFrame([], columns = headers)
+
             for el in range(2,len(headers)):
                     self.D3MeshDf[headers[el]] = []
+
             for data_id in times:
                 time_pv = data[data_id].strip().split()
                 days, pv = [float(time_pv[el_id+1]) for el_id in range(len(time_pv)) if time_pv[el_id]=='=']
@@ -269,212 +277,190 @@ class Example(Frame):
         except Exception as ex:
             print(ex)
         return ''
-    
+
     def readFile(self, fullpath, dirname):
-        # read all files by order
-        try:
-            f_name = fullpath.split('/')[-1].split('.')[0]
-            self.overal_read(fullpath)
+        
+        f_name = fullpath.split('/')[-1].split('.')[0]
+        self.overal_read(fullpath)
 
-            files_list = [i for i in os.listdir(dirname) if i.__contains__(f'{f_name}')]
-            output_names = []
+        files_list = [i for i in os.listdir(dirname) if i.__contains__(f'{f_name}')]
+        output_names = []
 
-            for hists in [nn for nn in files_list if nn.__contains__('.HIST')]:
-                output_names += self.injector_read(f"{dirname}/{hists}")
-            
-            for item in output_names:
-                self.InjectorDf[f'{item}'] = [pd.read_csv(f'{item}.csv')]
-                self.submenu.add_command(label=f'{item}',
-                                         command=lambda arg=f'{item}':
-                                         self.injectorOpen(arg))
-            self.OveralDf = pd.read_csv('overall.csv')
-            #three_d_names = []
-            three_d = []
-            for i in ['.ALKP', '.COMP', '.CONCP', '.PRES',
-                      '.RPERM', '.SALT', '.SATP', '.TRAP', '.VISC']:
-                for nn in files_list:
-                    if nn.__contains__(i):
-                        three_d += [nn]
-            start = time.time()
-            for n in three_d:
-                self.mesh_3d_read(dirname, n)
-                #time.sleep(2)
-            print(f'It took {(time.time() - start)}')
-            print('----------------------Reading is done!!!')
-            self.solutionMenu.add_command(label="3D",
-                                          command=lambda arg=self.three_d_names,
-                                          f_n=f_name,
-                                          dirname=dirname:
-                                          self.threeDOpen(arg, f_n, dirname))
-        except Exception as ex:
-            print(ex)
+        for hists in [nn for nn in files_list if nn.__contains__('.HIST')]:
+            output_names += self.injector_read(f"{dirname}/{hists}")
+        
+        for item in output_names:
+            self.InjectorDf[f'{item}'] = [pd.read_csv(f'{item}.csv')]
+            self.submenu.add_command(label=f'{item}',
+                                     command=lambda arg=f'{item}':
+                                     self.injectorOpen(arg))
+        self.OveralDf = pd.read_csv('overall.csv')
+        #three_d_names = []
+        three_d = []
+        for i in ['.ALKP', '.COMP', '.CONCP', '.PRESP', 
+                  '.PERM', '.RPERM', '.SALT', '.SATP', '.TRAP', '.VISC']:
+            for nn in files_list:
+                if nn.__contains__(i):
+                    three_d += [nn]
+        start = time.time()
+        for n in three_d:
+            self.mesh_3d_read(dirname, n)
+            #time.sleep(2)
+        print(f'It took {(time.time() - start)}')
+        print('----------------------Reading is done!!!')
+        self.solutionMenu.add_command(label="3D",
+                                      command=lambda arg=self.three_d_names,
+                                      f_n=f_name,
+                                      dirname=dirname:
+                                      self.threeDOpen(arg, f_n, dirname))
         return ' '
 
     def drawGrap(self, df=pd.DataFrame()):
         # draw 3d graf
-        try:
-            headers = [i for i in df.keys()]
-            head_list = StringVar(value=headers)
+        headers = [i for i in df.keys()]
+        head_list = StringVar(value=headers)
 
-            time = StringVar()
-            sentmsg = StringVar()
+        time = StringVar()
+        sentmsg = StringVar()
 
-            statusmsg = StringVar()
-            f = Figure(figsize=(6, 5), dpi=100)
-            f_plot = f.add_subplot(111)
+        statusmsg = StringVar()
+        f = Figure(figsize=(6, 5), dpi=100)
+        f_plot = f.add_subplot(111)
 
-            def showGrid(*args):
-                idxs = lbox.curselection()
+        def showGrid(*args):
+            idxs = lbox.curselection()
+            f_plot.clear()
+            if len(idxs) == 1:
+                idx = int(idxs[0])
+                ox = headers[idx]
+                oy = time.get()
                 f_plot.clear()
-                if len(idxs) == 1:
-                    idx = int(idxs[0])
-                    ox = headers[idx]
-                    oy = time.get()
-                    f_plot.clear()
-                    if oy == 'Days':
-                        f_plot.plot(df['DAYS'], df[f'{ox}'])
-                        f_plot.set(xlabel='DAYS', ylabel=f'{ox}')
-                    else:
-                        f_plot.plot(df['PV'], df[f'{ox}'])
-                        f_plot.set(xlabel='PV', ylabel=f'{ox}')
-                    canvs.draw()
-                    statusmsg.set("The graph  of %s" % (ox))
-                sentmsg.set('')
-
-            c = ttk.Frame(self, padding=(5, 5, 12, 0))
-            c.grid(column=0, row=0, sticky=(N, W, E, S))
-
-            self.grid_columnconfigure(0, weight=1)
-            self.grid_rowconfigure(0, weight=1)
-
-            lbox = Listbox(c, listvariable=head_list, height=5)
-            lbl = ttk.Label(c, text="Choose Y (Default: days):")
-
-            g1 = ttk.Radiobutton(c, text='Days', variable=time, value='Days')
-            g2 = ttk.Radiobutton(c, text='PV', variable=time, value='PV')
-
-            sentlbl = ttk.Label(c, textvariable=sentmsg, anchor='center')
-            status = ttk.Label(c, textvariable=statusmsg, anchor=W)
-
-            lbox.grid(column=0, row=0, rowspan=6, sticky=(N, S, E, W))
-            lbl.grid(column=1, row=0, padx=10, pady=5)
-
-            g1.grid(column=1, row=1, sticky=W, padx=20)
-            g2.grid(column=1, row=2, sticky=W, padx=20)
-
-            sentlbl.grid(column=1, row=5, columnspan=2, sticky=N, pady=5, padx=5)
-            status.grid(column=0, row=6, columnspan=2, sticky=(W, E))
-
-            c.grid_columnconfigure(0, weight=1)
-            c.grid_rowconfigure(5, weight=1)
-
-            lbox.bind('<<ListboxSelect>>', showGrid)
-            for i in range(0, len(headers), 2):
-                lbox.itemconfigure(i, background='#f0f0ff')
-            canvs = FigureCanvasTkAgg(f, self)
-            canvs.get_tk_widget().grid(column=0, row=1)
-            time.set('Days')
+                if oy == 'Days':
+                    f_plot.plot(df['DAYS'], df[f'{ox}'])
+                    f_plot.set(xlabel='DAYS', ylabel=f'{ox}')
+                else:
+                    f_plot.plot(df['PV'], df[f'{ox}'])
+                    f_plot.set(xlabel='PV', ylabel=f'{ox}')
+                canvs.draw()
+                statusmsg.set("The graph  of %s" % (ox))
             sentmsg.set('')
-            statusmsg.set('')
-            lbox.selection_set(0)
-            showGrid()
-        except Exception as ex:
-            print(ex)
+
+        c = ttk.Frame(self, padding=(5, 5, 12, 0))
+        c.grid(column=0, row=0, sticky=(N, W, E, S))
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        lbox = Listbox(c, listvariable=head_list, height=5)
+        lbl = ttk.Label(c, text="Choose Y (Default: days):")
+
+        g1 = ttk.Radiobutton(c, text='Days', variable=time, value='Days')
+        g2 = ttk.Radiobutton(c, text='PV', variable=time, value='PV')
+
+        sentlbl = ttk.Label(c, textvariable=sentmsg, anchor='center')
+        status = ttk.Label(c, textvariable=statusmsg, anchor=W)
+
+        lbox.grid(column=0, row=0, rowspan=6, sticky=(N, S, E, W))
+        lbl.grid(column=1, row=0, padx=10, pady=5)
+
+        g1.grid(column=1, row=1, sticky=W, padx=20)
+        g2.grid(column=1, row=2, sticky=W, padx=20)
+
+        sentlbl.grid(column=1, row=5, columnspan=2, sticky=N, pady=5, padx=5)
+        status.grid(column=0, row=6, columnspan=2, sticky=(W, E))
+
+        c.grid_columnconfigure(0, weight=1)
+        c.grid_rowconfigure(5, weight=1)
+
+        lbox.bind('<<ListboxSelect>>', showGrid)
+        for i in range(0, len(headers), 2):
+            lbox.itemconfigure(i, background='#f0f0ff')
+        canvs = FigureCanvasTkAgg(f, self)
+        canvs.get_tk_widget().grid(column=0, row=1)
+        time.set('Days')
+        sentmsg.set('')
+        statusmsg.set('')
+        lbox.selection_set(0)
+        showGrid()
 
     def threeDOpen(self, names, f_n, dirname):
+        
+        warn_file = open(f'{dirname}/{f_n}.WARN', "r")
+        warn_data = warn_file.readlines()
+        warn = sorted([int(re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)[0])
+                       for a in warn_data
+                       if re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)])
+        
+        def draw_cube(datas, row_name, NX, NY, NZ, xscale, yscale, zscale, xcord, ycord, welname, symbol):
+
+            try:
+                p = pv.Plotter()
+                pv.global_theme.background = "black"
+                datas = np.array(datas)
+                ni, nj, nk = NX, NY, NZ
+                si, sj, sk = 2*xscale[0], 2*yscale[0], 2*zscale[0]
+
+                na = []
+                z = 2 * zscale[0] + zscale[len(zscale)-1]
+                for i in range(len(xcord)):
+                    na.append([xcord[i], ycord[i], z])
+                poly = pv.PolyData(np.array(na))
+                poly["My Labels"] = welname
+                
+                xcorn = np.arange(0, (ni+1)*si, si)
+                xcorn = np.repeat(xcorn, 2)
+                xcorn = xcorn[1:-1]
+                xcorn = np.tile(xcorn, 4*nj*nk)
+
+                ycorn = np.arange(0, (nj+1)*sj, sj)
+                ycorn = np.repeat(ycorn, 2)
+                ycorn = ycorn[1:-1]
+                ycorn = np.tile(ycorn, (2*ni, 2*nk))
+                ycorn = np.transpose(ycorn)
+                ycorn = ycorn.flatten()
+
+                zcorn = np.arange(0, (nk+1)*sk, sk)
+                zcorn = np.repeat(zcorn, 2)
+                zcorn = zcorn[1:-1]
+                zcorn = np.repeat(zcorn, (4*ni*nj))
+
+                fetch = lambda index: datas[index].flatten()
+
+                corners = np.stack((xcorn, ycorn, zcorn))
+                corners = corners.transpose()
+                dims = np.asarray((ni, nj, nk))+1
+                p.add_point_labels(poly, "My Labels", point_size=15, font_size=20, text_color="red")
+                
+                def create_grid(value):
+
+                    grid = pv.ExplicitStructuredGrid(dims, corners)
+                    grid['values'] = fetch(int(value))
+                    grid.compute_connectivity()
+                    # ghosts = np.argwhere(grid['values'] < 0.2)
+                    # grid.remove_cells(ghosts)
+                    p.add_mesh(grid, show_edges=True, cmap="rainbow", clim=[np.min(datas), np.max(datas)])
+                    return
+
+                max_value = len(datas)-1
+                actor = p.add_slider_widget(create_grid, [0, max_value], title='Time')
+                cpos = p.show()
+            except Exception as ex:
+                p.close()
+                print(ex)
+
+        def show3d(*args):
+
+            idxs = lbox.curselection()
+            if len(idxs) == 1:
+                idx = int(idxs[0])
+                row_name = headers[idx]
+                datas = self.D3MeshDf[row_name]
+                draw_cube(datas, row_name, NX, NY, NZ,\
+                          xscale, yscale, zscale, xcord,\
+                          ycord, welname, symbol)
+            sentmsg.set('')
+
         try:
-            warn_file = open(f'{dirname}/{f_n}.WARN', "r")
-            warn_data = warn_file.readlines()
-            warn = sorted([int(re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)[0])
-                           for a in warn_data
-                           if re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)])
-
-            def get_color(value):
-                norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
-                rgba_color = cm.jet(norm(value))
-                c = Color(rgb=(rgba_color[0], rgba_color[1], rgba_color[2]))
-                return str(c).split()[0]
-
-            def draw_cubes(datas, row_id, row_name, ax):
-                cell = 0
-                ax.clear()
-                ax.set_zlim(0, max(zscale)+100)
-                for flag_id in range(0, len(xcord)):
-                    ax.scatter(xcord[flag_id], ycord[flag_id],
-                               max(zscale)+min(zscale)+15, marker='<',
-                               color='red' if welname[flag_id][:2] == '"I'
-                               else 'blue', s=70)
-                    ax.text(xcord[flag_id], ycord[flag_id],
-                            max(zscale)+min(zscale)+30, welname[flag_id],
-                            fontsize=10, bbox=dict(facecolor='red', alpha=0.5))
-                ax.set_title(f'3D graf of {row_name}')
-
-                for k in range(0, len(zscale)):
-                    for j in range(0, len(xscale)):
-                        for i in range(0, len(yscale)):
-                            cell += 1
-                            if cell in warn:
-                                continue
-                            else:
-                                my_arr = np.reshape(datas[row_id][k], (NX, NY))
-                                a = ((xscale[j])-(xscale[0]),
-                                     (yscale[i])-(yscale[0]),
-                                     (zscale[k])-(zscale[0]))
-                                b = ((xscale[j])+(xscale[0]),
-                                     (yscale[i])+(yscale[0]),
-                                     (zscale[k])+(zscale[0]))
-                                x, y, z = 0, 1, 2
-
-                                vertices = [
-                                        [(a[x], a[y], a[z]), (b[x], a[y], a[z]),
-                                         (b[x], a[y], b[z]), (a[x], a[y], b[z])],
-                                        [(a[x], b[y], a[z]), (b[x], b[y], a[z]),
-                                         (b[x], b[y], b[z]), (a[x], b[y], b[z])],
-                                        # xy
-                                        [(a[x], a[y], a[z]), (a[x], b[y], a[z]),
-                                         (a[x], b[y], b[z]), (a[x], a[y], b[z])],
-                                        [(b[x], a[y], a[z]), (b[x], b[y], a[z]),
-                                         (b[x], b[y], b[z]), (b[x], a[y], b[z])],
-                                        # xz
-                                        [(a[x], a[y], a[z]), (b[x], a[y], a[z]),
-                                         (b[x], b[y], a[z]), (a[x], b[y], a[z])],
-                                        [(a[x], a[y], b[z]), (b[x], a[y], b[z]),
-                                         (b[x], b[y], b[z]), (a[x], b[y], b[z])],
-                                ]
-                                ax.add_collection3d(Poly3DCollection(
-                                    vertices,
-                                    facecolor=get_color(my_arr[j][i]),
-                                    linewidths=0.2,
-                                    edgecolors='k', alpha=0.8))
-
-            def show3d(*args):
-                idxs = lbox.curselection()
-                if len(idxs) == 1:
-                    idx = int(idxs[0])
-                    row_name = headers[idx]
-                    datas = self.D3MeshDf[row_name]
-                    root = tkinter.Tk()
-                    root.wm_title("3d")
-                    fig = plt.figure(figsize=(7, 7), dpi=100)
-                    canvas = FigureCanvasTkAgg(fig, master=root)
-                    canvas.draw()
-                    canvas.get_tk_widget().pack(side=tkinter.TOP,
-                                                fill=tkinter.BOTH, expand=1)
-                    # matplotlib.use('TkAgg')
-                    ax = fig.add_subplot(111, projection='3d')
-                    draw_cubes(datas, 0, row_name, ax)
-                    self.m = 1
-
-                    def dosmt():
-                        draw_cubes(datas, self.m, row_name, ax)
-                        self.m += 10
-                    pro_rate_button = tkinter.Button(master=root, command=dosmt,
-                                                     height=2, width=12,
-                                                     text="Play")
-                    pro_rate_button.pack()
-                    tkinter.mainloop()
-                    statusmsg.set("The graph  of %s" % (row_name))
-                sentmsg.set('')
             headers = names
             head_list = StringVar(value=headers)
             NX, NY, NZ, xscale, yscale, zscale, xcord,\
@@ -490,19 +476,11 @@ class Example(Frame):
             self.grid_rowconfigure(0, weight=1)
 
             lbox = Listbox(c, listvariable=head_list, height=5)
-            lbl = ttk.Label(c, text="Choose Y (Default: days):")
-
-            g1 = ttk.Radiobutton(c, text='Days', variable=time, value='Days')
-            g2 = ttk.Radiobutton(c, text='PV', variable=time, value='PV')
 
             sentlbl = ttk.Label(c, textvariable=sentmsg, anchor='center')
             status = ttk.Label(c, textvariable=statusmsg, anchor=W)
 
             lbox.grid(column=0, row=0, rowspan=6, sticky=(N, S, E, W))
-            lbl.grid(column=1, row=0, padx=10, pady=5)
-
-            g1.grid(column=1, row=1, sticky=W, padx=20)
-            g2.grid(column=1, row=2, sticky=W, padx=20)
 
             sentlbl.grid(column=1, row=5, columnspan=2, sticky=N, pady=5, padx=5)
             status.grid(column=0, row=6, columnspan=2, sticky=(W, E))
@@ -513,13 +491,13 @@ class Example(Frame):
             lbox.bind('<<ListboxSelect>>', show3d)
             for i in range(0, len(headers), 2):
                 lbox.itemconfigure(i, background='#f0f0ff')
+
             time.set('Days')
             sentmsg.set('')
             statusmsg.set('')
             lbox.selection_set(0)
         except Exception as ex:
             print(ex)
-
 
 def main():
 
