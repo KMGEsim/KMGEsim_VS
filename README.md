@@ -1,5 +1,5 @@
 # README
-
+Changed by me
 > GUI for KMGEsim
 
 ![GUI](https://github.com/KMGEsim/KMGEsim_TP/blob/master/f100int10.gif)
@@ -34,4 +34,19 @@ Install virtualenv:
 > cd KMGEsim_VS # got to folder KMGEsim_VS
 > pip install -r requirements.txt # install requirements packages
 > ..\env\Scripts\deactivate # deactivate enviroment
+```
+
+Renew repository:
+
+```sh
+> git pull # pulling repo
+> ..\env\Scripts\activate # activate virtual env
+> pip install -r requirements.txt # install requirements packages
+```
+Push repository:
+```sh
+> git status # check the status of the file
+> git add . # adding new changes
+> git commit -m "Comment info" # commit changes
+> git push origin main # pushing repo
 ```
