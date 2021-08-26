@@ -9,7 +9,6 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
@@ -17,19 +16,21 @@ import multiprocessing
 import os
 import re
 from tkinter import ttk
-
 from colour import Color
-
 import matplotlib
 from matplotlib import cm
+import seaborn as sb
+sb.set_theme()
 
 class Example(Frame):
+
 
     def __init__(self, parent):
 
         Frame.__init__(self, parent)   
         self.parent = parent 
         self.__Unit__()
+
 
     def __Unit__(self):
         
@@ -39,26 +40,22 @@ class Example(Frame):
         self.three_d_names = []
         self.ProducerDf = pd.DataFrame()
         self.pack(fill=BOTH, expand=1)
-        
         self.menubar = Menu(self.parent)
         self.parent.config(menu=self.menubar)
-
         self.fileMenu = Menu(self.menubar,tearoff=0)
         self.fileMenu.add_command(label="Open", command=self.onOpen)
         self.fileMenu.add_command(label="Clear", command=self.clear)
         self.menubar.add_cascade(label="File", menu=self.fileMenu)
-        
-        self.summaryMenu=Menu(self.menubar,tearoff=0)
-        
-        self.submenu = Menu(self.summaryMenu,tearoff=0)
+        self.summaryMenu=Menu(self.menubar, tearoff=0)
+        self.submenu = Menu(self.summaryMenu, tearoff=0)
         self.summaryMenu.add_cascade(label='Well', menu=self.submenu)
-        
         self.summaryMenu.add_command(label='Overall', command=self.overalOpen)
         self.menubar.add_cascade(label='Summary', menu=self.summaryMenu)
-        
+        self.p = pv.Plotter()
         self.solutionMenu=Menu(self.menubar, tearoff=0) 
         self.menubar.add_cascade(label='Solution', menu=self.solutionMenu)
         self.m = 1
+
 
     def onOpen(self):
 
@@ -66,17 +63,18 @@ class Example(Frame):
         for l in list_:
             l.destroy()
         self.__Unit__()
-        
         ftypes = [('Overal files', '*.OVERAL'), ('All files', '*')]
-        dlg = filedialog.Open(self, filetypes = ftypes)
+        dlg = filedialog.Open(self, filetypes=ftypes)
         fl = dlg.show()
         if fl != '':
             print('----------------------Start reading!')
             self.readFile(fl, os.path.dirname(fl))
 
+
     def solutionOpen(self, item):
 
         self.summary(f'{item}')
+
 
     def clear(self):
 
@@ -101,24 +99,22 @@ class Example(Frame):
             # read overal file
             file = open(path, "r")
             data_overal = file.readlines()
-
             startIndex = data_overal.index("   LIST OF VARIABLES ARE : \n")
-            endIndex = [data_overal.index(a) for a in data_overal if re.findall(r'   TOTAL NO. OF VARIABLES IS =  [\d]+',a )][0]
+            endIndex = [data_overal.index(a) for a in data_overal if re.findall(r'   TOTAL NO. OF VARIABLES IS =  [\d]+', a)][0]
             numberOfVariable = int(re.findall(r'([\d]+)', data_overal[endIndex])[0])
-
-            headers=[]
+            headers = []
             for i in range(startIndex+2,endIndex):
                 if data_overal[i].count(':') == 0:
                     headers += [a.split('-')[1].strip() for a in data_overal[i].strip().split(',')]
                 else:
                     if data_overal[i].__contains__('FOR EACH PHASE'):
                         (a,b) = re.findall(r'([\d]+)-([\d]+)', data_overal[i].strip())[0]
-                        count = int(b)-int(a)+2
-                        word = re.findall(r': (.+) FOR EACH PHASE',data_overal[i].strip())[0]
+                        count = int(b) - int(a) + 2
+                        word = re.findall(r': (.+) FOR EACH PHASE', data_overal[i].strip())[0]
                         headers += [f'{word}_{reti}' for reti in range(1, count)]
                     else:
                         (a,b) = re.findall(r'([\d]+)-[ ]?([\d]+)', data_overal[i].strip())[0]
-                        count = int(b)-int(a)+1
+                        count = int(b) - int(a) + 1
                         if count == len(data_overal[i].strip().split(':')[1].strip().split(',')):
                             words = data_overal[i].strip().split(':')[1].strip().split(',')
                             headers += [c.strip() for c in words]
@@ -126,23 +122,23 @@ class Example(Frame):
                             words = data_overal[i].strip().split(':')[1].strip().split(',')
                             headers += [reti.strip() for word in words for reti in word.split('AND') ]
 
-            headers = [i.strip().replace(' ','_') for i in headers]
-            headers = [i.replace('.','') for i in headers]
+            headers = [i.strip().replace(' ', '_') for i in headers]
+            headers = [i.replace('.', '') for i in headers]
             print('----------------------Overall reading done!')
             with open('overall.csv', 'w', encoding='UTF8') as f:
                 writer = csv.writer(f)
-
                 # write the header
                 writer.writerow(headers)
                 # write the data
                 shag = endIndex-startIndex-2
-                for i in range(endIndex+3,len(data_overal), shag):
-                    my_dt= []
+                for i in range(endIndex+3, len(data_overal), shag):
+                    my_dt = []
                     for j in range(shag):
                         my_dt += data_overal[i+j].strip().split(',')[:-1]
                     writer.writerow(my_dt)
         except Exception as ex:
             print(ex)
+
 
     def injector_read(self, path):
 
@@ -150,91 +146,84 @@ class Example(Frame):
             # read well block inector and producer
             file = open(path, "r")
             data_well = file.readlines()
-
-            name = [re.findall(r'HISTORY DATA FOR WELL:[ ]+ID[ ]+=.+=[ ]+(.+)',a) for a in data_well if re.findall(r'HISTORY DATA FOR WELL:[ ]+ID[ ]+=.+=[ ]+(.+)',a )][0][0].strip()
-
+            name = [re.findall(r'HISTORY DATA FOR WELL:[ ]+ID[ ]+=.+=[ ]+(.+)', a) for a in data_well if re.findall(r'HISTORY DATA FOR WELL:[ ]+ID[ ]+=.+=[ ]+(.+)', a)][0][0].strip()
             startIndex = data_well.index("   LIST OF VARIABLES ARE : \n")
-            endIndex = [data_well.index(a) for a in data_well if re.findall(r'   TOTAL NO. OF VARIABLES FOR A.+ IS =[ ]+[\d]+',a )][0]
+            endIndex = [data_well.index(a) for a in data_well if re.findall(r'   TOTAL NO. OF VARIABLES FOR A.+ IS =[ ]+[\d]+', a)][0]
             numberOfVariable = int(re.findall(r'([\d]+)', data_well[endIndex])[0])
-
             headers=[]
             for i in range(startIndex+2,endIndex):
                 if data_well[i].count(':') == 0:
                     headers += [a.split('-')[1].strip() for a in data_well[i].strip().split(',')]
                 else:
                     if data_well[i].__contains__('FOR EACH WELLBLOCK'):
-                        (a,b) = re.findall(r'([\d]+)-[ ]+([\d]+)[ ]+:', data_well[i].strip())[0]
-                        count = int(b)-int(a)+2
-                        if (int(a)-int(b))==0:
+                        (a, b) = re.findall(r'([\d]+)-[ ]+([\d]+)[ ]+:', data_well[i].strip())[0]
+                        count = int(b) - int(a) + 2
+                        if (int(a) - int(b)) == 0:
                             words = data_well[i].strip().split(':')[1].strip()
                             headers += [words]
                         else:
-                            word = re.findall(r': (.+) FOR EACH WELLBLOCK',data_well[i].strip())[0]
+                            word = re.findall(r': (.+) FOR EACH WELLBLOCK', data_well[i].strip())[0]
                             headers += [f'{word}_{reti}' for reti in range(1, count)]
                     else:
-                        (a,b) = re.findall(r'([\d]+)-[ ]+([\d]+)', data_well[i].strip())[0]
-                        count = int(b)-int(a)+2
-                        if (int(a)-int(b))==0:
+                        (a, b) = re.findall(r'([\d]+)-[ ]+([\d]+)', data_well[i].strip())[0]
+                        count = int(b) - int(a) + 2
+                        if (int(a) - int(b)) == 0:
                             words = data_well[i].strip().split(':')[1].strip()
                             headers += [words]
                         else:
-                            word = re.findall(r': (.+)',data_well[i].strip())[0]
+                            word = re.findall(r': (.+)', data_well[i].strip())[0]
                             headers += [f'{word}_{reti}' for reti in range(1, count)]
-
-            headers = [i.strip().replace(' ','_') for i in headers]
-            cols =0
-            hedcount =0
-            for i in range(endIndex+3,len(data_well)):
+            headers = [i.strip().replace(' ', '_') for i in headers]
+            cols = 0
+            hedcount = 0
+            for i in range(endIndex + 3, len(data_well)):
                 row = data_well[i].strip().split(', ')
-                cols +=1
+                cols += 1
                 hedcount += len(row)
-                if hedcount==len(headers):
+                if hedcount == len(headers):
                     break
-
             print(f'----------------------Well block reading is {name} done!')
             with open(f'{name}.csv', 'w', encoding='UTF8') as f:
                 writer = csv.writer(f)
                 # write the header
                 writer.writerow(headers)
                 # write the data
-                for i in range(endIndex+3,len(data_well), cols):
+                for i in range(endIndex + 3, len(data_well), cols):
                     my_dt= []
                     for j in range(cols):
                         my_dt += data_well[i+j].strip().split(', ')
-
                     writer.writerow(my_dt)
             return [name]
         except Exception as ex:
             print(ex)
             return []
 
+
     def read_mesh_concp(self, fname, dirname):
+
         try:
             # read MESH file
             file_mesh = open(f'{dirname}/{fname}.MESH', "r")
             data_mesh = file_mesh.readlines()
-
             NX, NY, NZ = re.findall(r'NX =[ ]+([\d]+)[ ]+NY =[ ]+([\d]+)[ ]+NZ =[ ]+([\d]+)', data_mesh[0])[0]
             NX, NY, NZ = int(NX), int(NY), int(NZ)
             beginIndx = [data_mesh.index(i) for i in data_mesh if re.findall(r'XSCALE, YSCALE, ZSCALE IN FT', i)][0]
             endIndx = [data_mesh.index(i) for i in data_mesh if re.findall(r'X-CORD', i)][0]
-
-            a =[float(el) for el in ' '.join([i.strip() for i in data_mesh[beginIndx+1:endIndx]]).split()]
-            xscale, yscale, zscale = a[:NX], a[NX:NX+NY] ,a[NY+NY:NZ+NX+NY]
-
-            xcord, ycord, welname, symbol = [],[],[],[]
-
+            a = [float(el) for el in ' '.join([i.strip() for i in data_mesh[beginIndx+1:endIndx]]).split()]
+            xscale, yscale, zscale = a[:NX], a[NX:NX+NY], a[NY+NY:NZ+NX+NY]
+            xcord, ycord, welname, symbol = [], [], [], []
             for i in range(endIndx+1,len(data_mesh)):
                 xcord.append(float(data_mesh[i].strip().split(',')[0]))
                 ycord.append(float(data_mesh[i].strip().split(',')[1]))
                 welname.append(data_mesh[i].strip().split(',')[2])
                 symbol.append(data_mesh[i].strip().split(',')[3])
-
             return NX, NY, NZ, xscale, yscale, zscale, xcord, ycord, welname, symbol
         except Exception as ex:
             print(ex)
 
+
     def mesh_3d_read(self, dirname, three_d):
+
         try:
             # read 3D data files
             path = f"{dirname}/{three_d}"
@@ -281,13 +270,10 @@ class Example(Frame):
         
         f_name = fullpath.split('/')[-1].split('.')[0]
         self.overal_read(fullpath)
-
         files_list = [i for i in os.listdir(dirname) if i.__contains__(f'{f_name}')]
         output_names = []
-
         for hists in [nn for nn in files_list if nn.__contains__('.HIST')]:
             output_names += self.injector_read(f"{dirname}/{hists}")
-        
         for item in output_names:
             self.InjectorDf[f'{item}'] = [pd.read_csv(f'{item}.csv')]
             self.submenu.add_command(label=f'{item}',
@@ -314,18 +300,16 @@ class Example(Frame):
                                       self.threeDOpen(arg, f_n, dirname))
         return ' '
 
+
     def drawGrap(self, df=pd.DataFrame()):
         # draw 3d graf
         headers = [i for i in df.keys()]
         head_list = StringVar(value=headers)
-
         time = StringVar()
         sentmsg = StringVar()
-
         statusmsg = StringVar()
         f = Figure(figsize=(6, 5), dpi=100)
         f_plot = f.add_subplot(111)
-
         def showGrid(*args):
             idxs = lbox.curselection()
             f_plot.clear()
@@ -346,31 +330,22 @@ class Example(Frame):
 
         c = ttk.Frame(self, padding=(5, 5, 12, 0))
         c.grid(column=0, row=0, sticky=(N, W, E, S))
-
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
-
         lbox = Listbox(c, listvariable=head_list, height=5)
         lbl = ttk.Label(c, text="Choose Y (Default: days):")
-
         g1 = ttk.Radiobutton(c, text='Days', variable=time, value='Days')
         g2 = ttk.Radiobutton(c, text='PV', variable=time, value='PV')
-
         sentlbl = ttk.Label(c, textvariable=sentmsg, anchor='center')
         status = ttk.Label(c, textvariable=statusmsg, anchor=W)
-
         lbox.grid(column=0, row=0, rowspan=6, sticky=(N, S, E, W))
         lbl.grid(column=1, row=0, padx=10, pady=5)
-
         g1.grid(column=1, row=1, sticky=W, padx=20)
         g2.grid(column=1, row=2, sticky=W, padx=20)
-
         sentlbl.grid(column=1, row=5, columnspan=2, sticky=N, pady=5, padx=5)
         status.grid(column=0, row=6, columnspan=2, sticky=(W, E))
-
         c.grid_columnconfigure(0, weight=1)
         c.grid_rowconfigure(5, weight=1)
-
         lbox.bind('<<ListboxSelect>>', showGrid)
         for i in range(0, len(headers), 2):
             lbox.itemconfigure(i, background='#f0f0ff')
@@ -382,22 +357,23 @@ class Example(Frame):
         lbox.selection_set(0)
         showGrid()
 
+
     def threeDOpen(self, names, f_n, dirname):
-        
-        warn_file = open(f'{dirname}/{f_n}.WARN', "r")
-        warn_data = warn_file.readlines()
-        warn = sorted([int(re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)[0])
-                       for a in warn_data
-                       if re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)])
-        
+
+        if os.path.exists(f'{dirname}/{f_n}.WARN'):
+            warn_file = open(f'{dirname}/{f_n}.WARN', "r")
+            warn_data = warn_file.readlines()
+            warn = sorted([int(re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)[0])
+                           for a in warn_data
+                           if re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)])
+
         def draw_cube(datas, row_name, NX, NY, NZ, xscale, yscale, zscale, xcord, ycord, welname, symbol):
 
             try:
-                p = pv.Plotter()
                 pv.global_theme.background = "black"
                 datas = np.array(datas)
                 ni, nj, nk = NX, NY, NZ
-                si, sj, sk = 2*xscale[0], 2*yscale[0], 2*zscale[0]
+                si, sj, sk = 2 * xscale[0], 2 * yscale[0], 2 * zscale[0]
 
                 na = []
                 z = 2 * zscale[0] + zscale[len(zscale)-1]
@@ -405,7 +381,6 @@ class Example(Frame):
                     na.append([xcord[i], ycord[i], z])
                 poly = pv.PolyData(np.array(na))
                 poly["My Labels"] = welname
-                
                 xcorn = np.arange(0, (ni+1)*si, si)
                 xcorn = np.repeat(xcorn, 2)
                 xcorn = xcorn[1:-1]
@@ -428,27 +403,25 @@ class Example(Frame):
                 corners = np.stack((xcorn, ycorn, zcorn))
                 corners = corners.transpose()
                 dims = np.asarray((ni, nj, nk))+1
-                p.add_point_labels(poly, "My Labels", point_size=15, font_size=20, text_color="red")
+                self.p.add_point_labels(poly, "My Labels", point_size=15, font_size=20, text_color="red")
+
                 
                 def create_grid(value):
 
                     grid = pv.ExplicitStructuredGrid(dims, corners)
                     grid['values'] = fetch(int(value))
                     grid.compute_connectivity()
-                    # ghosts = np.argwhere(grid['values'] < 0.2)
-                    # grid.remove_cells(ghosts)
-                    p.add_mesh(grid, show_edges=True, cmap="rainbow", clim=[np.min(datas), np.max(datas)])
+                    self.p.add_mesh(grid, show_edges=True, cmap="rainbow", clim=[np.min(datas), np.max(datas)])
                     return
 
                 max_value = len(datas)-1
-                actor = p.add_slider_widget(create_grid, [0, max_value], title='Time')
-                cpos = p.show()
+                actor = self.p.add_slider_widget(create_grid, [0, max_value], title='Time')
+                cpos = self.p.show()
             except Exception as ex:
-                p.close()
                 print(ex)
 
-        def show3d(*args):
 
+        def show3d(*args):
             idxs = lbox.curselection()
             if len(idxs) == 1:
                 idx = int(idxs[0])
@@ -498,18 +471,16 @@ class Example(Frame):
         except Exception as ex:
             print(ex)
 
-def main():
 
-    try:
-        root = Tk()
-        root.title('KMGEsim')
-        ex = Example(root)
-        root.geometry("650x700")
-        root.iconbitmap('KMGEsim.ico')
-        root.mainloop()
-    except Exception as ex:
-        print(ex)
+def main():
+    
+    root = Tk()
+    root.title('KMGEsim')
+    ex = Example(root)
+    root.geometry("650x700")
+    root.iconbitmap('KMGEsim.ico')
+    root.mainloop()
+
 
 if __name__ == '__main__':
-
     main()
