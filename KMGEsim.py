@@ -1,3 +1,4 @@
+# import modules 
 from tkinter import *
 import tkinter
 from tkinter import filedialog
@@ -22,9 +23,11 @@ from colour import Color
 import matplotlib
 from matplotlib import cm
 
+
+# create class
 class Example(Frame):
     
-    
+    # initialization, constructor
     def __init__(self, parent):
         Frame.__init__(self, parent)# Initialization 
         self.parent = parent # Parent class
@@ -380,22 +383,25 @@ class Example(Frame):
             showGrid()
         except Exception as ex:
             print(ex)
-
+    # function for 3d visualization
     def threeDOpen(self, names, f_n, dirname):
         try:
+            # open warn file and read datas
             warn_file = open(f'{dirname}/{f_n}.WARN', "r")
             warn_data = warn_file.readlines()
             warn = sorted([int(re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)[0])
                            for a in warn_data
                            if re.findall(r'NOTE: THE CELL #[ ]+(\d+)', a)])
-
+          
             def get_color(value):
+                # color function for defenition cell color
                 norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
                 rgba_color = cm.jet(norm(value))
                 c = Color(rgb=(rgba_color[0], rgba_color[1], rgba_color[2]))
                 return str(c).split()[0]
 
             def draw_cubes(datas, row_id, row_name, ax):
+                # draw cubes by row name
                 cell = 0
                 ax.clear()
                 ax.set_zlim(0, max(zscale)+100)
@@ -448,6 +454,7 @@ class Example(Frame):
                                     edgecolors='k', alpha=0.8))
 
             def show3d(*args):
+                # function for show 3d data
                 idxs = lbox.curselection()
                 if len(idxs) == 1:
                     idx = int(idxs[0])
@@ -479,10 +486,11 @@ class Example(Frame):
             head_list = StringVar(value=headers)
             NX, NY, NZ, xscale, yscale, zscale, xcord,\
                 ycord, welname, symbol = self.read_mesh_concp(f_n, dirname)
+            # create var, frame, grid and ListBox
             time = StringVar()
             sentmsg = StringVar()
             statusmsg = StringVar()
-
+  
             c = ttk.Frame(self, padding=(5, 5, 12, 0))
             c.grid(column=0, row=0, sticky=(N, W, E, S))
 
@@ -524,6 +532,7 @@ class Example(Frame):
 def main():
 
     try:
+        # create examplar of Tkinter and configuration
         root = Tk()
         root.title('KMGEsim')
         ex = Example(root)
